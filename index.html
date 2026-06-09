@@ -3882,11 +3882,20 @@ limparTodosDados = async function() {
 async function bootApp() {
   try {
     const userId = window.__TORMENTA_USER__?.id;
+    if (!userId) { location.reload(); return; }
 
     // Carregar perfil do usuário
-    const { data: perfil } = await sbClient.from('user_profiles').select('*').eq('user_id', userId).maybeSingle();
-    window.__TORMENTA_PERFIL__ = perfil?.perfil || 'editor';
-    window.__TORMENTA_NOME__   = perfil?.nome || window.__TORMENTA_USER__?.email;
+    let perfilData = null;
+    try {
+      const { data: perfil, error: perfilErr } = await sbClient
+        .from('user_profiles')
+        .select('perfil, nome')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!perfilErr) perfilData = perfil;
+    } catch(e) { console.warn('Perfil não carregado:', e); }
+    window.__TORMENTA_PERFIL__ = perfilData?.perfil || 'editor';
+    window.__TORMENTA_NOME__   = perfilData?.nome || window.__TORMENTA_USER__?.email;
 
     const { data, error } = await sbClient.from('dashboard_state').select('*').eq('user_id', userId).maybeSingle();
     if (error) throw error;
