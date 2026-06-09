@@ -2518,114 +2518,163 @@ function renderResumoOperacional() {
     <div style="display:flex;flex-wrap:wrap;gap:16px;">${cards}</div>`;
 }
 
-// Gerar PDF individual por canal — Concluídos
+// Gerar PDF individual por canal — card por cliente
 function gerarPDFCanal(revendaId) {
-  // Encontrar o nome real da revenda pelo id
-  const bloco = document.getElementById('canal-bloco-' + revendaId);
-  if (!bloco) return;
-  const nomeRevenda = bloco.querySelector('.canal-bloco-nome')?.textContent || revendaId;
-
-  // Filtrar descontos concluídos desta revenda
-  const rows = descData.filter(r => {
-    const canal = (r.canal || '') + ' ' + (r.filial || '');
-    const revendaNorm = nomeRevenda;
-    return (r.canal === revendaNorm || canal.includes(revendaNorm) || r.filial === revendaNorm || nomeRevenda.includes(r.canal || '') || nomeRevenda.includes(r.filial || '')) && r.situacao === 'Concluído';
+  // Achar nome real do canal
+  let nomeRevenda = revendaId.replace(/_/g, ' ');
+  const blocos = document.querySelectorAll('[id^="canal-bloco-"]');
+  blocos.forEach(b => {
+    if (b.id === 'canal-bloco-' + revendaId) {
+      nomeRevenda = b.querySelector('.canal-bloco-nome')?.textContent || nomeRevenda;
+    }
   });
 
-  // Se não achou por situação, pega todos desta revenda
-  const rowsTodos = descData.filter(r => {
-    return (r.canal === nomeRevenda || (r.canal + ' — ' + r.filial) === nomeRevenda || nomeRevenda.includes(r.canal || '') || nomeRevenda.includes(r.filial || ''));
+  // Também tentar pelo resumo operacional
+  const cards = document.querySelectorAll('#resumo-operacional-canais [data-canal]');
+  cards.forEach(c => {
+    if (c.dataset.canal === revendaId) nomeRevenda = c.dataset.nome || nomeRevenda;
   });
 
-  const rowsFinal = rows.length > 0 ? rows : rowsTodos;
+  // Filtrar descData por canal
+  const rowsFinal = descData.filter(r => {
+    const rId = (r.canal||'').replace(/[^a-zA-Z0-9]/g,'_');
+    return rId === revendaId || (r.canal||'') === nomeRevenda;
+  });
 
   if (!rowsFinal.length) {
     alert('Nenhum desconto encontrado para ' + nomeRevenda);
     return;
   }
 
-  const hoje = new Date().toLocaleDateString('pt-BR');
-  const fmt = v => v > 0 ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '-';
+  const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
+  const fmt = v => v > 0 ? 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const fmtPct = (lista, preco) => lista > 0 && preco > 0 ? ((( lista - preco) / lista)*100).toFixed(1)+'%' : '—';
+  const statusClr = s => s==='Concluído' ? '#dcfce7:#166534' : s==='Pendente' ? '#fef9c3:#854d0e' : '#f1f5f9:#475569';
 
-  let linhas = '';
-  rowsFinal.forEach(r => {
-    (r.cultivares || []).forEach(c => {
-      const bagDesc = c.bag?.vlrLista > 0 ? (((c.bag.vlrLista - (c.bag.preco||0)) / c.bag.vlrLista) * 100).toFixed(1) + '%' : '-';
-      const sacDesc = c.saco?.vlrLista > 0 ? (((c.saco.vlrLista - (c.saco.preco||0)) / c.saco.vlrLista) * 100).toFixed(1) + '%' : '-';
-      linhas += `<tr>
-        <td>${r.cliente || '-'}</td>
-        <td>${r.filial || '-'}</td>
-        <td>${r.tipo || '-'}</td>
-        <td>${c.cultivar || '-'}${c.tsi && c.tsi !== 'Sem Tsi' ? '<br><small>'+c.tsi+'</small>' : ''}</td>
-        <td style="text-align:right">${c.bag?.qtd || 0}</td>
-        <td style="text-align:right">${fmt(c.bag?.vlrLista)}</td>
-        <td style="text-align:right">${fmt(c.bag?.preco)}</td>
-        <td style="text-align:center;font-weight:700;color:${bagDesc !== '-' ? '#c00' : '#333'}">${bagDesc}</td>
-        <td style="text-align:right">${c.saco?.qtd || 0}</td>
-        <td style="text-align:right">${fmt(c.saco?.vlrLista)}</td>
-        <td style="text-align:right">${fmt(c.saco?.preco)}</td>
-        <td style="text-align:center;font-weight:700;color:${sacDesc !== '-' ? '#c00' : '#333'}">${sacDesc}</td>
-        <td style="text-align:center">${r.vencimento || '-'}</td>
-        <td style="text-align:center"><span style="background:${r.situacao==='Concluído'?'#d4edda':r.situacao==='Pendente'?'#fff3cd':'#f8d7da'};padding:2px 8px;border-radius:10px;font-size:10px">${r.situacao || '-'}</span></td>
-      </tr>`;
+  let clienteCards = '';
+  rowsFinal.forEach((r, ri) => {
+    const [bgS, txS] = statusClr(r.situacao).split(':');
+    let cultivaresHTML = '';
+    (r.cultivares||[]).forEach((c,ci) => {
+      const temBag  = c.bag?.qtd  > 0;
+      const temSaco = c.saco?.qtd > 0;
+      if (!temBag && !temSaco) return;
+      cultivaresHTML += `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+              <span style="font-size:13px;font-weight:700;color:#1e3a1e;">${c.cultivar||'—'}</span>
+              ${c.tsi && c.tsi!=='Sem Tsi' ? `<span style="margin-left:8px;background:#e0f2fe;color:#0369a1;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:600;">${c.tsi}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:${temBag && temSaco ? '1fr 1fr' : '1fr'};gap:12px;">
+            ${temBag ? `
+            <div style="background:#fff;border:1px solid #d1fae5;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Bag</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+                <div><div style="font-size:18px;font-weight:700;color:#1e3a1e;">${c.bag.qtd}</div><div style="font-size:9px;color:#6b7280;">Qtd</div></div>
+                <div><div style="font-size:12px;font-weight:600;color:#374151;">${fmt(c.bag.vlrLista)}</div><div style="font-size:9px;color:#6b7280;">Lista</div></div>
+                <div><div style="font-size:12px;font-weight:700;color:#166534;">${fmt(c.bag.preco)}</div><div style="font-size:9px;color:#6b7280;">Final</div></div>
+              </div>
+              ${c.bag.vlrLista > 0 ? `<div style="margin-top:8px;text-align:center;background:#dcfce7;border-radius:6px;padding:3px;font-size:11px;font-weight:700;color:#166534;">Desconto ${fmtPct(c.bag.vlrLista,c.bag.preco)}</div>` : ''}
+            </div>` : ''}
+            ${temSaco ? `
+            <div style="background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Saco</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+                <div><div style="font-size:18px;font-weight:700;color:#1e3a1e;">${c.saco.qtd}</div><div style="font-size:9px;color:#6b7280;">Qtd</div></div>
+                <div><div style="font-size:12px;font-weight:600;color:#374151;">${fmt(c.saco.vlrLista)}</div><div style="font-size:9px;color:#6b7280;">Lista</div></div>
+                <div><div style="font-size:12px;font-weight:700;color:#1d4ed8;">${fmt(c.saco.preco)}</div><div style="font-size:9px;color:#6b7280;">Final</div></div>
+              </div>
+              ${c.saco.vlrLista > 0 ? `<div style="margin-top:8px;text-align:center;background:#dbeafe;border-radius:6px;padding:3px;font-size:11px;font-weight:700;color:#1e40af;">Desconto ${fmtPct(c.saco.vlrLista,c.saco.preco)}</div>` : ''}
+            </div>` : ''}
+          </div>
+        </div>`;
     });
+
+    clienteCards += `
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:20px 22px;margin-bottom:20px;page-break-inside:avoid;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#1e3a1e;">${r.cliente||'Cliente não informado'}</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:3px;">
+              ${r.filial ? `<span>📍 ${r.filial}</span>` : ''}
+              ${r.tipo ? `<span style="margin-left:10px;">🏷 ${r.tipo}</span>` : ''}
+              ${r.vencimento ? `<span style="margin-left:10px;">📅 Venc. ${r.vencimento}</span>` : ''}
+            </div>
+          </div>
+          <span style="background:${bgS};color:${txS};border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;white-space:nowrap;">${r.situacao||'—'}</span>
+        </div>
+        ${cultivaresHTML || '<div style="color:#9ca3af;font-size:12px;font-style:italic;">Sem cultivares registradas</div>'}
+        ${r.obs ? `<div style="margin-top:10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;font-size:11px;color:#92400e;"><strong>Obs:</strong> ${r.obs}</div>` : ''}
+      </div>`;
   });
 
-  const win = window.open('', '_blank');
+  const concluidos = rowsFinal.filter(r=>r.situacao==='Concluído').length;
+  const pendentes  = rowsFinal.filter(r=>r.situacao==='Pendente').length;
+
+  const win = window.open('','_blank');
   win.document.write(`<!DOCTYPE html>
-<html>
-<head>
+<html><head>
   <meta charset="UTF-8">
   <title>Desconto — ${nomeRevenda}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 24px; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:12px; border-bottom:3px solid #2d6a2d; }
-    .header-left h1 { font-size:20px; color:#2d6a2d; }
-    .header-left h2 { font-size:14px; color:#444; margin-top:4px; }
-    .header-right { text-align:right; font-size:10px; color:#666; }
-    .header-right .data { font-size:13px; font-weight:bold; color:#2d6a2d; }
-    table { width:100%; border-collapse:collapse; margin-top:16px; }
-    th { background:#2d6a2d; color:#fff; padding:6px 8px; text-align:left; font-size:10px; }
-    td { padding:5px 8px; border-bottom:1px solid #eee; vertical-align:top; font-size:10px; }
-    tr:nth-child(even) td { background:#f8faf8; }
-    small { color:#888; font-size:9px; }
-    .footer { margin-top:24px; padding-top:10px; border-top:1px solid #ddd; text-align:center; font-size:9px; color:#aaa; }
-    .aviso { background:#fff9e6; border:1px solid #f0c040; border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:11px; color:#7a5c00; }
-    @media print { body { padding:12px; } }
+    body { font-family: -apple-system, Arial, sans-serif; background:#f8fafc; color:#1a1a1a; padding:32px 28px; }
+    @media print {
+      body { background:#fff; padding:20px; }
+      .no-print { display:none !important; }
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-left">
-      <h1>🌱 Sementes Tormenta</h1>
-      <h2>Relatório de Descontos — ${nomeRevenda}</h2>
+  <!-- Header -->
+  <div style="background:#1a3d1a;border-radius:16px;padding:24px 28px;margin-bottom:24px;color:#fff;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:.7;text-transform:uppercase;margin-bottom:6px;">Sementes Tormenta · Safra 26/27</div>
+        <div style="font-size:22px;font-weight:700;">${nomeRevenda}</div>
+        <div style="font-size:13px;opacity:.75;margin-top:4px;">Relatório de Descontos Negociados</div>
+      </div>
+      <div style="text-align:right;font-size:12px;opacity:.75;">
+        <div style="font-size:13px;font-weight:600;opacity:1;">${hoje}</div>
+        <div style="margin-top:4px;">${rowsFinal.length} registro${rowsFinal.length!==1?'s':''}</div>
+      </div>
     </div>
-    <div class="header-right">
-      <div class="data">${hoje}</div>
-      <div>Safra 26/27</div>
-      <div>${rowsFinal.length} registro(s)</div>
+    <!-- Resumo rápido -->
+    <div style="display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;">
+      <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:10px 18px;text-align:center;">
+        <div style="font-size:22px;font-weight:700;">${rowsFinal.length}</div>
+        <div style="font-size:10px;opacity:.7;margin-top:2px;">Total</div>
+      </div>
+      <div style="background:rgba(134,239,172,.2);border-radius:10px;padding:10px 18px;text-align:center;">
+        <div style="font-size:22px;font-weight:700;color:#86efac;">${concluidos}</div>
+        <div style="font-size:10px;opacity:.7;margin-top:2px;">Concluídos</div>
+      </div>
+      <div style="background:rgba(253,224,71,.15);border-radius:10px;padding:10px 18px;text-align:center;">
+        <div style="font-size:22px;font-weight:700;color:#fde047;">${pendentes}</div>
+        <div style="font-size:10px;opacity:.7;margin-top:2px;">Pendentes</div>
+      </div>
     </div>
   </div>
-  <div class="aviso">
-    ⚠️ Este documento é confidencial e destinado exclusivamente ao parceiro <strong>${nomeRevenda}</strong>. Os descontos aqui registrados foram negociados conforme condições acordadas para a Safra 26/27.
+
+  <!-- Aviso confidencial -->
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 16px;margin-bottom:22px;font-size:11px;color:#92400e;">
+    ⚠️ Documento confidencial destinado exclusivamente a <strong>${nomeRevenda}</strong>. Condições negociadas para a Safra 26/27.
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Cliente</th><th>Filial</th><th>Tipo</th><th>Cultivar / TSI</th>
-        <th>Bag Qtd</th><th>Vlr Lista</th><th>Vlr Final</th><th>Desc%</th>
-        <th>Sc Qtd</th><th>Vlr Lista</th><th>Vlr Final</th><th>Desc%</th>
-        <th>Vencimento</th><th>Situação</th>
-      </tr>
-    </thead>
-    <tbody>${linhas}</tbody>
-  </table>
-  <div class="footer">Sementes Tormenta — Plataforma Comercial · Documento gerado em ${hoje} · Confidencial</div>
-</body>
-</html>`);
+
+  <!-- Cards dos clientes -->
+  ${clienteCards}
+
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;font-size:10px;color:#9ca3af;">
+    Sementes Tormenta · Plataforma Comercial · Gerado em ${hoje} · Documento Confidencial
+  </div>
+
+  <div class="no-print" style="text-align:center;margin-top:20px;">
+    <button onclick="window.print()" style="background:#1a3d1a;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;">🖨 Imprimir / Salvar PDF</button>
+  </div>
+</body></html>`);
   win.document.close();
-  setTimeout(() => win.print(), 500);
 }
 
 // ============================================================
