@@ -3175,32 +3175,37 @@ function salvarTudo() {
 
 function carregarTudo() {
   try {
-    const raw = localStorage.getItem(DB_KEY);
-    if (!raw) { document.getElementById('save-ts').textContent = 'Sem dados salvos'; return false; }
-    const state = JSON.parse(raw);
-    if (state.sapData?.length) {
-      sapData = state.sapData;
-      sapData.forEach(r => { r.equiv = r.sc125k + r.bg5m*40; r.nomeCota = dePara[r.cultivarSAP]||r.cultivarSAP; });
+    // Usa estado carregado do Supabase pelo bootApp
+    const state = window.__TORMENTA_STATE__;
+    if (!state) {
+      // Fallback para localStorage se Supabase ainda não carregou
+      const raw = localStorage.getItem(DB_KEY);
+      if (!raw) { const el=document.getElementById('save-ts'); if(el) el.textContent='Sem dados salvos'; return false; }
+      const ls = JSON.parse(raw);
+      if (ls.sapData?.length) { sapData = ls.sapData; sapData.forEach(r => { r.equiv = r.sc125k + r.bg5m*40; r.nomeCota = dePara[r.cultivarSAP]||r.cultivarSAP; }); }
+      if (ls.pogData)    pogData    = ls.pogData;
+      if (ls.descData)   descData   = ls.descData;
+      if (ls.precosData) precosData = ls.precosData;
+      if (ls.prazosData) prazosData = ls.prazosData;
+      if (ls.crmLeads)   crmLeads   = ls.crmLeads;
+      sincronizarPOGdoCRM();
+      return true;
     }
+    if (state.sapData?.length) { sapData = state.sapData; sapData.forEach(r => { r.equiv = r.sc125k + r.bg5m*40; r.nomeCota = dePara[r.cultivarSAP]||r.cultivarSAP; }); }
     if (state.pogData)    pogData    = state.pogData;
     if (state.descData)   descData   = state.descData;
     if (state.precosData) precosData = state.precosData;
     if (state.prazosData) prazosData = state.prazosData;
     if (state.crmLeads)   crmLeads   = state.crmLeads;
-
-    // Reconstrói pogData dos leads CRM que têm pogLancado=true
-    // (garante consistência mesmo que pogData tenha sido corrompido ou perdido)
     sincronizarPOGdoCRM();
     if (state.savedAt) {
       const d = new Date(state.savedAt);
-      document.getElementById('save-ts').textContent =
-        'Salvo em ' + d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-      document.getElementById('save-indicator').style.opacity = '0.7';
+      const el = document.getElementById('save-ts');
+      if (el) el.textContent = 'Salvo em ' + d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     }
     return true;
   } catch(e) {
-    console.warn('Erro ao carregar:', e);
-    document.getElementById('save-ts').textContent = 'Erro ao carregar dados';
+    console.error('Erro ao carregar dados:', e);
     return false;
   }
 }
