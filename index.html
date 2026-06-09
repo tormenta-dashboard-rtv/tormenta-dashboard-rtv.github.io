@@ -3884,18 +3884,16 @@ async function bootApp() {
     const userId = window.__TORMENTA_USER__?.id;
     if (!userId) { location.reload(); return; }
 
-    // Carregar perfil do usuário
-    let perfilData = null;
-    try {
-      const { data: perfil, error: perfilErr } = await sbClient
-        .from('user_profiles')
-        .select('perfil, nome')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!perfilErr) perfilData = perfil;
-    } catch(e) { console.warn('Perfil não carregado:', e); }
-    window.__TORMENTA_PERFIL__ = perfilData?.perfil || 'editor';
-    window.__TORMENTA_NOME__   = perfilData?.nome || window.__TORMENTA_USER__?.email;
+    // Definir perfil pelo email (sem consulta extra ao banco)
+    const emailAtual = window.__TORMENTA_USER__?.email || '';
+    const emailsReadonly = ['diretoria@sementestormenta.com.br'];
+    const nomesMap = {
+      'leonardo@sementestormenta.com.br': 'Leonardo Longo',
+      'marcos@sementestormenta.com.br':   'Marcos Milani',
+      'diretoria@sementestormenta.com.br':'Diretoria'
+    };
+    window.__TORMENTA_PERFIL__ = emailsReadonly.includes(emailAtual) ? 'readonly' : 'editor';
+    window.__TORMENTA_NOME__   = nomesMap[emailAtual] || emailAtual.split('@')[0];
 
     const { data, error } = await sbClient.from('dashboard_state').select('*').eq('user_id', userId).maybeSingle();
     if (error) throw error;
