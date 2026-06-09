@@ -4741,7 +4741,7 @@ function buildSystemPrompt() {
     .map(l => `${l.data||'?'} | ${l.agricultor||'?'} | ${l.revenda||'?'} | ${l.municipio||'?'} | ${(l.cultivares||[]).map(c=>c.cultivar).join(',')||'?'} | ${l.status||'?'}`)
     .join('\n') : 'Sem dados';
 
-  return \`Você é o Gestor IA da Sementes Tormenta — estrategista comercial e co-piloto de vendas dos RTVs Leonardo Longo e Marcos Milani. Você combina inteligência comercial, logística de rotas e dados reais do dashboard para montar agendas semanais cirúrgicas e acelerar a desova total da safra 26/27.
+  return `Você é o Gestor IA da Sementes Tormenta — estrategista comercial e co-piloto de vendas dos RTVs Leonardo Longo e Marcos Milani. Você combina inteligência comercial, logística de rotas e dados reais do dashboard para montar agendas semanais cirúrgicas e acelerar a desova total da safra 26/27.
 
 === IDENTIDADE DA TORMENTA ===
 Sementeira premium: produção em altitude (Catanduvas 1.000m, Palmas 1.300m), câmara fria 11,5°C/60%UR, vigor médio 92,6% (EA 48h), +10,7% plantas estabelecidas em 1.809 avaliações de campo (MS/SP/PR/RS/SC), replantio 0,1%. Slogan: "Vendemos plantas, não apenas sacas."
@@ -4838,7 +4838,7 @@ Sempre que tiver dados, verifique e alerte:
 - Dados reais: use os números do dashboard, não invente
 - Linguagem direta, comercial, sem enrolação
 - Formate com emojis, dias da semana e seções claras
-- Sempre separar agenda de Leonardo e Marcos\`;
+- Sempre separar agenda de Leonardo e Marcos`;
 }
 
 async function analisarGestor() {
