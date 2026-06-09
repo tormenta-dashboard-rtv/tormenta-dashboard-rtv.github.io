@@ -2123,12 +2123,14 @@ function renderConsumo(){
       nAltaClientes > 0 ? `${nAltaClientes} Alta Perf.` : '',
     ].filter(Boolean).join(' · ');
 
-    html += `<div class="canal-bloco">
+    const revendaId = revenda.replace(/[^a-zA-Z0-9]/g,'_');
+    html += `<div class="canal-bloco" id="canal-bloco-${revendaId}">
       <div class="canal-bloco-header">
         <div>
           <div class="canal-bloco-nome">${revenda}</div>
           <div class="canal-bloco-sub">${resumo}</div>
         </div>
+        <button class="pdf-canal" onclick="gerarPDFCanal('${revendaId}')">🖨️ PDF</button>
       </div>
       <div class="canal-bloco-body">
         ${htmlDesafio}
@@ -2367,6 +2369,116 @@ function loadDescSample(){
   renderDescTable(); renderAlertas();
 }
 
+
+// Gerar PDF individual por canal — Concluídos
+function gerarPDFCanal(revendaId) {
+  // Encontrar o nome real da revenda pelo id
+  const bloco = document.getElementById('canal-bloco-' + revendaId);
+  if (!bloco) return;
+  const nomeRevenda = bloco.querySelector('.canal-bloco-nome')?.textContent || revendaId;
+
+  // Filtrar descontos concluídos desta revenda
+  const rows = descData.filter(r => {
+    const canal = (r.canal || '') + ' ' + (r.filial || '');
+    const revendaNorm = nomeRevenda;
+    return (r.canal === revendaNorm || canal.includes(revendaNorm) || r.filial === revendaNorm || nomeRevenda.includes(r.canal || '') || nomeRevenda.includes(r.filial || '')) && r.situacao === 'Concluído';
+  });
+
+  // Se não achou por situação, pega todos desta revenda
+  const rowsTodos = descData.filter(r => {
+    return (r.canal === nomeRevenda || (r.canal + ' — ' + r.filial) === nomeRevenda || nomeRevenda.includes(r.canal || '') || nomeRevenda.includes(r.filial || ''));
+  });
+
+  const rowsFinal = rows.length > 0 ? rows : rowsTodos;
+
+  if (!rowsFinal.length) {
+    alert('Nenhum desconto encontrado para ' + nomeRevenda);
+    return;
+  }
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const fmt = v => v > 0 ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '-';
+
+  let linhas = '';
+  rowsFinal.forEach(r => {
+    (r.cultivares || []).forEach(c => {
+      const bagDesc = c.bag?.vlrLista > 0 ? (((c.bag.vlrLista - (c.bag.preco||0)) / c.bag.vlrLista) * 100).toFixed(1) + '%' : '-';
+      const sacDesc = c.saco?.vlrLista > 0 ? (((c.saco.vlrLista - (c.saco.preco||0)) / c.saco.vlrLista) * 100).toFixed(1) + '%' : '-';
+      linhas += `<tr>
+        <td>${r.cliente || '-'}</td>
+        <td>${r.filial || '-'}</td>
+        <td>${r.tipo || '-'}</td>
+        <td>${c.cultivar || '-'}${c.tsi && c.tsi !== 'Sem Tsi' ? '<br><small>'+c.tsi+'</small>' : ''}</td>
+        <td style="text-align:right">${c.bag?.qtd || 0}</td>
+        <td style="text-align:right">${fmt(c.bag?.vlrLista)}</td>
+        <td style="text-align:right">${fmt(c.bag?.preco)}</td>
+        <td style="text-align:center;font-weight:700;color:${bagDesc !== '-' ? '#c00' : '#333'}">${bagDesc}</td>
+        <td style="text-align:right">${c.saco?.qtd || 0}</td>
+        <td style="text-align:right">${fmt(c.saco?.vlrLista)}</td>
+        <td style="text-align:right">${fmt(c.saco?.preco)}</td>
+        <td style="text-align:center;font-weight:700;color:${sacDesc !== '-' ? '#c00' : '#333'}">${sacDesc}</td>
+        <td style="text-align:center">${r.vencimento || '-'}</td>
+        <td style="text-align:center"><span style="background:${r.situacao==='Concluído'?'#d4edda':r.situacao==='Pendente'?'#fff3cd':'#f8d7da'};padding:2px 8px;border-radius:10px;font-size:10px">${r.situacao || '-'}</span></td>
+      </tr>`;
+    });
+  });
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Desconto — ${nomeRevenda}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 24px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:12px; border-bottom:3px solid #2d6a2d; }
+    .header-left h1 { font-size:20px; color:#2d6a2d; }
+    .header-left h2 { font-size:14px; color:#444; margin-top:4px; }
+    .header-right { text-align:right; font-size:10px; color:#666; }
+    .header-right .data { font-size:13px; font-weight:bold; color:#2d6a2d; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2d6a2d; color:#fff; padding:6px 8px; text-align:left; font-size:10px; }
+    td { padding:5px 8px; border-bottom:1px solid #eee; vertical-align:top; font-size:10px; }
+    tr:nth-child(even) td { background:#f8faf8; }
+    small { color:#888; font-size:9px; }
+    .footer { margin-top:24px; padding-top:10px; border-top:1px solid #ddd; text-align:center; font-size:9px; color:#aaa; }
+    .aviso { background:#fff9e6; border:1px solid #f0c040; border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:11px; color:#7a5c00; }
+    @media print { body { padding:12px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>🌱 Sementes Tormenta</h1>
+      <h2>Relatório de Descontos — ${nomeRevenda}</h2>
+    </div>
+    <div class="header-right">
+      <div class="data">${hoje}</div>
+      <div>Safra 26/27</div>
+      <div>${rowsFinal.length} registro(s)</div>
+    </div>
+  </div>
+  <div class="aviso">
+    ⚠️ Este documento é confidencial e destinado exclusivamente ao parceiro <strong>${nomeRevenda}</strong>. Os descontos aqui registrados foram negociados conforme condições acordadas para a Safra 26/27.
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Cliente</th><th>Filial</th><th>Tipo</th><th>Cultivar / TSI</th>
+        <th>Bag Qtd</th><th>Vlr Lista</th><th>Vlr Final</th><th>Desc%</th>
+        <th>Sc Qtd</th><th>Vlr Lista</th><th>Vlr Final</th><th>Desc%</th>
+        <th>Vencimento</th><th>Situação</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+  <div class="footer">Sementes Tormenta — Plataforma Comercial · Documento gerado em ${hoje} · Confidencial</div>
+</body>
+</html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
 
 // ============================================================
 // RELATÓRIO PDF POR REVENDA — DESCONTOS
