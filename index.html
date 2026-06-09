@@ -1175,7 +1175,7 @@ body.readonly-mode { padding-top: 32px !important; }
         <span class="export-label">Exportar:</span>
         <button class="btn btn-ghost btn-sm" onclick="exportDescCSV()">📄 CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="exportDescExcel()">📊 Excel</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="gerarRelatorioPDFDescontos()">🖨️ PDF por Revenda</button>
         <button class="btn btn-ghost btn-sm" id="btn-copy-desc" onclick="copyDescTable()">📋 Copiar</button>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button class="btn btn-gold btn-sm" onclick="loadDescSample()">🔄 Dados Exemplo</button>
@@ -2365,6 +2365,117 @@ function loadDescSample(){
     {id:7,canal:'B2B',filial:'Cândido Mota',cliente:'COOPERMOTA',tipo:'B2B',qtd:1000,embalagem:'Saco 125K',preco:9878},
   ];
   renderDescTable(); renderAlertas();
+}
+
+
+// ============================================================
+// RELATÓRIO PDF POR REVENDA — DESCONTOS
+// ============================================================
+function gerarRelatorioPDFDescontos() {
+  if (!descData || descData.length === 0) {
+    alert('Nenhum dado de desconto para gerar relatório.');
+    return;
+  }
+
+  // Agrupar por canal/filial
+  const grupos = {};
+  descData.forEach(r => {
+    const chave = (r.canal || 'Sem Canal') + ' — ' + (r.filial || 'Sem Filial');
+    if (!grupos[chave]) grupos[chave] = [];
+    grupos[chave].push(r);
+  });
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  let body = '';
+
+  Object.keys(grupos).sort().forEach(grupo => {
+    const rows = grupos[grupo];
+    body += `
+      <div class="grupo">
+        <div class="grupo-header">📍 ${grupo}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Tipo</th>
+              <th>Cultivar</th>
+              <th>Bag Qtd</th>
+              <th>Vlr Lista</th>
+              <th>Vlr Final</th>
+              <th>Desc %</th>
+              <th>Saco Qtd</th>
+              <th>Vlr Lista</th>
+              <th>Vlr Final</th>
+              <th>Desc %</th>
+              <th>Situação</th>
+              <th>Vencimento</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+    rows.forEach(r => {
+      (r.cultivares || []).forEach(c => {
+        const bagDesc = c.bag?.vlrLista > 0 ? (((c.bag.vlrLista - c.bag.preco) / c.bag.vlrLista) * 100).toFixed(1) + '%' : '-';
+        const sacDesc = c.saco?.vlrLista > 0 ? (((c.saco.vlrLista - c.saco.preco) / c.saco.vlrLista) * 100).toFixed(1) + '%' : '-';
+        const fmt = v => v > 0 ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '-';
+        body += `
+            <tr>
+              <td>${r.cliente || '-'}</td>
+              <td>${r.tipo || '-'}</td>
+              <td>${c.cultivar || '-'}<br><small>${c.tsi !== 'Sem Tsi' ? c.tsi : ''}</small></td>
+              <td>${c.bag?.qtd || 0}</td>
+              <td>${fmt(c.bag?.vlrLista)}</td>
+              <td>${fmt(c.bag?.preco)}</td>
+              <td>${bagDesc}</td>
+              <td>${c.saco?.qtd || 0}</td>
+              <td>${fmt(c.saco?.vlrLista)}</td>
+              <td>${fmt(c.saco?.preco)}</td>
+              <td>${sacDesc}</td>
+              <td>${r.situacao || '-'}</td>
+              <td>${r.vencimento || '-'}</td>
+            </tr>`;
+      });
+    });
+
+    body += `</tbody></table></div>`;
+  });
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Descontos por Revenda — Sementes Tormenta</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2d6a2d; padding-bottom: 12px; }
+    .header h1 { font-size: 18px; color: #2d6a2d; }
+    .header p { font-size: 11px; color: #666; margin-top: 4px; }
+    .grupo { margin-bottom: 24px; page-break-inside: avoid; }
+    .grupo-header { background: #2d6a2d; color: #fff; padding: 6px 10px; font-weight: bold; font-size: 12px; border-radius: 4px 4px 0 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f0f7f0; color: #2d6a2d; padding: 5px 6px; text-align: left; border: 1px solid #ccc; font-size: 10px; }
+    td { padding: 4px 6px; border: 1px solid #ddd; vertical-align: top; }
+    tr:nth-child(even) td { background: #fafafa; }
+    small { color: #888; font-size: 9px; }
+    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 8px; }
+    @media print {
+      .grupo { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🌱 Sementes Tormenta — Relatório de Descontos por Revenda</h1>
+    <p>Safra 26/27 · Gerado em ${hoje} · Total de registros: ${descData.length}</p>
+  </div>
+  ${body}
+  <div class="footer">Sementes Tormenta — Plataforma Comercial · Confidencial</div>
+</body>
+</html>`);
+  win.document.close();
+  win.print();
 }
 
 function exportDescCSV(){
