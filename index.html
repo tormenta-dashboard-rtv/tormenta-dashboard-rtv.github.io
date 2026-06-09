@@ -4220,26 +4220,7 @@ window.__TORMENTA_USER__  = null;
 let _saveTimer = null;
 salvarTudo = function() {
   if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(async () => {
-    try {
-      const userId = window.__TORMENTA_USER__?.id;
-      if (!userId) return;
-      const payload = { user_id: '00000000-0000-0000-0000-000000000001', sap_data: sapData, pog_data: pogData,
-        desc_data: descData, precos_data: precosData, prazos_data: prazosData,
-        crm_leads: crmLeads, saved_at: new Date().toISOString() };
-      const { error } = await sbClient.from('dashboard_state').upsert(payload, { onConflict: 'user_id' });
-      if (error) throw error;
-      window.__TORMENTA_STATE__ = {
-        sapData, pogData, descData, precosData, prazosData, crmLeads,
-        savedAt: payload.saved_at
-      };
-      showSaveIndicator();
-    } catch (e) {
-      console.error('Erro ao salvar:', e);
-      const el = document.getElementById('save-ts');
-      if (el) el.textContent = 'Erro ao salvar: ' + e.message;
-    }
-  }, 400);
+  _saveTimer = setTimeout(() => salvarTudoAgora(), 400);
 };
 
 // Versão síncrona para ações críticas
