@@ -1710,7 +1710,7 @@ function lancarPOG(modo) {
   if (!canal||!cultivar) { alert('Preencha canal e cultivar.'); return; }
   const totalSC = sc + bags*40;
   if (totalSC===0) { alert('Informe quantidade.'); return; }
-  pogData.push({canal,filial:filial||'—',agricultor,cultivar,tsi,bags,sc,totalSC,modo,ts:new Date().toLocaleTimeString('pt-BR')});
+  pogData.push({id: Date.now()+'_'+Math.random().toString(36).slice(2,7),canal,filial:filial||'—',agricultor,cultivar,tsi,bags,sc,totalSC,modo,ts:new Date().toLocaleTimeString('pt-BR')});
   renderPOG(); renderDashboard();
   salvarTudo();
   document.getElementById(p+'-bags').value=0;
