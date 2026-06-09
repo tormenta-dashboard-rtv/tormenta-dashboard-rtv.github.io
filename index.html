@@ -4228,6 +4228,10 @@ salvarTudo = function() {
         crm_leads: crmLeads, saved_at: new Date().toISOString() };
       const { error } = await sbClient.from('dashboard_state').upsert(payload, { onConflict: 'user_id' });
       if (error) throw error;
+      window.__TORMENTA_STATE__ = {
+        sapData, pogData, descData, precosData, prazosData, crmLeads,
+        savedAt: payload.saved_at
+      };
       showSaveIndicator();
     } catch (e) {
       console.error('Erro ao salvar:', e);
@@ -4250,6 +4254,11 @@ async function salvarTudoAgora(extraPayload) {
       crm_leads: crmLeads, saved_at: new Date().toISOString() }, extraPayload||{});
     const { error } = await sbClient.from('dashboard_state').upsert(payload, { onConflict: 'user_id' });
     if (error) throw error;
+    // Atualizar __TORMENTA_STATE__ para F5 refletir estado atual
+    window.__TORMENTA_STATE__ = {
+      sapData, pogData, descData, precosData, prazosData, crmLeads,
+      savedAt: payload.saved_at
+    };
     showSaveIndicator();
   } catch (e) {
     console.error('Erro ao salvar:', e);
