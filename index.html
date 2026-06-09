@@ -1164,7 +1164,7 @@ body.readonly-mode { padding-top: 32px !important; }
       </div>
 
       <!-- Resumo Operacional por Canal -->
-      <div class="sec-title" style="margin-bottom:12px;">📊 Resumo Operacional por Canal</div>
+      <div class="sec-title" style="margin-bottom:12px;" id="resumo-op-titulo">📊 Resumo Operacional · Descontos por Canal</div>
       <div id="resumo-operacional-canais" style="margin-bottom:28px;"></div>
 
       <!-- Consumo por Canal/Filial -->
@@ -2189,6 +2189,7 @@ function getDescStatus(row){
 }
 
 function renderDescTable(filter,tipoFilter){
+  renderResumoOperacional();
   filter=filter||''; tipoFilter=tipoFilter||'';
   var tbody=document.getElementById('tbody-descontos');
   var cultivaresLista=[].concat([...new Set(sapData.map(function(r){return r.nomeCota;}).filter(Boolean))].sort());
