@@ -4249,9 +4249,9 @@ async function salvarTudoAgora(extraPayload) {
   try {
     const userId = window.__TORMENTA_USER__?.id;
     if (!userId) return;
-    const payload = Object.assign({ user_id: userId, sap_data: sapData, pog_data: pogData,
+    const payload = { user_id: userId, sap_data: sapData, pog_data: pogData,
       desc_data: descData, precos_data: precosData, prazos_data: prazosData,
-      crm_leads: crmLeads, saved_at: new Date().toISOString() }, extraPayload||{});
+      crm_leads: crmLeads, saved_at: new Date().toISOString() };
     const { error } = await sbClient.from('dashboard_state').upsert(payload, { onConflict: 'user_id' });
     if (error) throw error;
     // Atualizar __TORMENTA_STATE__ para F5 refletir estado atual
