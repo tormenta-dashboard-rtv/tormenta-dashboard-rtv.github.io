@@ -3496,6 +3496,7 @@ function removerLead(id) {
   if (!confirm('Remover esta visita?')) return;
   const lead = crmLeads.find(l => String(l.id) === String(id));
   crmLeads = crmLeads.filter(l => String(l.id) !== String(id));
+  crmLeadsDeletedIds.add(String(id));
   sincronizarPOGdoCRM();
   aplicarApelidos();
   renderPOG();
@@ -4256,20 +4257,23 @@ async function salvarTudoAgora(extraPayload) {
       .eq('user_id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle();
 
-    // Merge de crmLeads — combina registros remotos com locais por ID
+    // Merge de crmLeads — local vence quando ID existe nos dois, remoto adiciona novos
     let crmMerged = crmLeads;
     if (remoto?.crm_leads?.length) {
       const localIds = new Set(crmLeads.map(l => String(l.id)));
-      const remotoSemLocal = remoto.crm_leads.filter(l => !localIds.has(String(l.id)));
-      crmMerged = [...crmLeads, ...remotoSemLocal];
+      // Adiciona apenas registros remotos que NÃO existem localmente E não foram deletados
+      const apenasRemoto = remoto.crm_leads.filter(l => 
+        !localIds.has(String(l.id)) && !crmLeadsDeletedIds.has(String(l.id))
+      );
+      crmMerged = [...crmLeads, ...apenasRemoto];
     }
 
-    // Merge de pogData
+    // Merge de pogData — mesmo critério
     let pogMerged = pogData;
     if (remoto?.pog_data?.length) {
       const localIds = new Set(pogData.map(p => String(p.id)));
-      const remotoSemLocal = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
-      pogMerged = [...pogData, ...remotoSemLocal];
+      const apenasRemoto = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
+      pogMerged = [...pogData, ...apenasRemoto];
     }
 
     const payload = {
@@ -4289,6 +4293,7 @@ async function salvarTudoAgora(extraPayload) {
     // Atualizar estado local com o merge
     crmLeads = crmMerged;
     pogData   = pogMerged;
+    crmLeadsDeletedIds.clear(); // Limpa após salvar com sucesso
     window.__TORMENTA_STATE__ = {
       sapData, pogData: pogMerged, descData, precosData, prazosData,
       crmLeads: crmMerged, savedAt: payload.saved_at
