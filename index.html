@@ -4249,15 +4249,49 @@ async function salvarTudoAgora(extraPayload) {
   try {
     const userId = window.__TORMENTA_USER__?.id;
     if (!userId) return;
-    const payload = { user_id: '00000000-0000-0000-0000-000000000001', sap_data: sapData, pog_data: pogData,
-      desc_data: descData, precos_data: precosData, prazos_data: prazosData,
-      crm_leads: crmLeads, saved_at: new Date().toISOString() };
+
+    // Buscar estado atual do Supabase para fazer merge
+    const { data: remoto } = await sbClient.from('dashboard_state')
+      .select('crm_leads, pog_data, sap_data, desc_data, precos_data, prazos_data')
+      .eq('user_id', '00000000-0000-0000-0000-000000000001')
+      .maybeSingle();
+
+    // Merge de crmLeads — combina registros remotos com locais por ID
+    let crmMerged = crmLeads;
+    if (remoto?.crm_leads?.length) {
+      const localIds = new Set(crmLeads.map(l => String(l.id)));
+      const remotoSemLocal = remoto.crm_leads.filter(l => !localIds.has(String(l.id)));
+      crmMerged = [...crmLeads, ...remotoSemLocal];
+    }
+
+    // Merge de pogData
+    let pogMerged = pogData;
+    if (remoto?.pog_data?.length) {
+      const localIds = new Set(pogData.map(p => String(p.id)));
+      const remotoSemLocal = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
+      pogMerged = [...pogData, ...remotoSemLocal];
+    }
+
+    const payload = {
+      user_id: '00000000-0000-0000-0000-000000000001',
+      sap_data: sapData.length ? sapData : (remoto?.sap_data || []),
+      pog_data: pogMerged,
+      desc_data: descData.length ? descData : (remoto?.desc_data || []),
+      precos_data: Object.keys(precosData).length ? precosData : (remoto?.precos_data || {}),
+      prazos_data: Object.keys(prazosData||{}).length ? prazosData : (remoto?.prazos_data || {}),
+      crm_leads: crmMerged,
+      saved_at: new Date().toISOString()
+    };
+
     const { error } = await sbClient.from('dashboard_state').upsert(payload, { onConflict: 'user_id' });
     if (error) throw error;
-    // Atualizar __TORMENTA_STATE__ para F5 refletir estado atual
+
+    // Atualizar estado local com o merge
+    crmLeads = crmMerged;
+    pogData   = pogMerged;
     window.__TORMENTA_STATE__ = {
-      sapData, pogData, descData, precosData, prazosData, crmLeads,
-      savedAt: payload.saved_at
+      sapData, pogData: pogMerged, descData, precosData, prazosData,
+      crmLeads: crmMerged, savedAt: payload.saved_at
     };
     showSaveIndicator();
   } catch (e) {
