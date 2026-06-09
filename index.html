@@ -4255,19 +4255,29 @@ async function salvarTudoAgora(extraPayload) {
     if (remoto?.pog_data?.length) {
       const localIds  = new Set(pogData.map(p => String(p.id)));
       const remotoIds = new Set(remoto.pog_data.map(p => String(p.id)));
-      // Adiciona remotos que não existem localmente
       const apenasRemoto = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
-      // Adiciona locais que não existem no remoto (novos lançamentos)
       const apenasLocal  = pogData.filter(p => !remotoIds.has(String(p.id)));
-      // Base: remoto completo + novos locais
       pogMerged = [...remoto.pog_data, ...apenasLocal];
+    }
+
+    // Merge de descData — bidirecional completo
+    let descMerged = descData;
+    if (remoto?.desc_data?.length) {
+      const localIds  = new Set(descData.map(d => String(d.id)));
+      const remotoIds = new Set(remoto.desc_data.map(d => String(d.id)));
+      const apenasRemoto = remoto.desc_data.filter(d => !localIds.has(String(d.id)));
+      const apenasLocal  = descData.filter(d => !remotoIds.has(String(d.id)));
+      // Local vence para IDs existentes nos dois (edições do usuário)
+      descMerged = [...remoto.desc_data.map(d => localIds.has(String(d.id)) ? descData.find(l=>String(l.id)===String(d.id)) : d), ...apenasLocal];
+    } else if (descData.length) {
+      descMerged = descData;
     }
 
     const payload = {
       user_id: '00000000-0000-0000-0000-000000000001',
       sap_data: sapData.length ? sapData : (remoto?.sap_data || []),
       pog_data: pogMerged,
-      desc_data: descData.length ? descData : (remoto?.desc_data || []),
+      desc_data: descMerged,
       precos_data: Object.keys(precosData).length ? precosData : (remoto?.precos_data || {}),
       prazos_data: Object.keys(prazosData||{}).length ? prazosData : (remoto?.prazos_data || {}),
       crm_leads: crmMerged,
@@ -4280,9 +4290,10 @@ async function salvarTudoAgora(extraPayload) {
     // Atualizar estado local com o merge
     crmLeads = crmMerged;
     pogData   = pogMerged;
-    crmLeadsDeletedIds.clear(); // Limpa após salvar com sucesso
+    descData  = descMerged;
+    crmLeadsDeletedIds.clear();
     window.__TORMENTA_STATE__ = {
-      sapData, pogData: pogMerged, descData, precosData, prazosData,
+      sapData, pogData: pogMerged, descData: descMerged, precosData, prazosData,
       crmLeads: crmMerged, savedAt: payload.saved_at
     };
     showSaveIndicator();
