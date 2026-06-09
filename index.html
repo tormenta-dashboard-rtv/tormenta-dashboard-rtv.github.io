@@ -4250,12 +4250,17 @@ async function salvarTudoAgora(extraPayload) {
       crmMerged = [...crmLeads, ...apenasRemoto];
     }
 
-    // Merge de pogData — mesmo critério
+    // Merge de pogData — bidirecional completo
     let pogMerged = pogData;
     if (remoto?.pog_data?.length) {
-      const localIds = new Set(pogData.map(p => String(p.id)));
+      const localIds  = new Set(pogData.map(p => String(p.id)));
+      const remotoIds = new Set(remoto.pog_data.map(p => String(p.id)));
+      // Adiciona remotos que não existem localmente
       const apenasRemoto = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
-      pogMerged = [...pogData, ...apenasRemoto];
+      // Adiciona locais que não existem no remoto (novos lançamentos)
+      const apenasLocal  = pogData.filter(p => !remotoIds.has(String(p.id)));
+      // Base: remoto completo + novos locais
+      pogMerged = [...remoto.pog_data, ...apenasLocal];
     }
 
     const payload = {
