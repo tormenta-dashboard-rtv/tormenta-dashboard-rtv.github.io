@@ -2224,7 +2224,9 @@ function renderDescTable(filter,tipoFilter){
     return '<input type="text" value="'+(val||'')+'" placeholder="'+(ph||'')+'" style="width:'+w+';padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--cream);" onchange="updateDescRowHeader(\''+rowId+'\',\''+field+'\',this.value)">';
   }
   function inpNum(val,rowId,cId,emb,field,w){
-    return '<input type="number" step="0.01" value="'+(Number(val)||0)+'" style="width:'+w+';padding:3px 5px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--cream);text-align:right;" onchange="updateDescRow(\''+rowId+'\',\''+cId+'\',\''+emb+'\',\''+field+'\',this.value)">';
+    var extraOnchange = (field==='qtd') ? ' toggleVlrCampos(this);' : '';
+    var dataAttrs = ' data-row-id="'+rowId+'" data-cult-id="'+cId+'" data-tipo="'+emb+'" data-field="'+field+'"';
+    return '<input type="number" step="0.01" value="'+(Number(val)||0)+'"'+dataAttrs+' style="width:'+w+';padding:3px 5px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--cream);text-align:right;" onchange="updateDescRow(\''+rowId+'\',\''+cId+'\',\''+emb+'\',\''+field+'\',this.value);'+extraOnchange+'">';
   }
 
   var html='';
@@ -2309,6 +2311,10 @@ function renderDescTable(filter,tipoFilter){
 
   tbody.innerHTML=html;
   updateDescFooter();
+  // Aplicar visibilidade inicial dos campos vlr baseado na qtd
+  document.querySelectorAll('#tbody-descontos input[data-field="qtd"]').forEach(function(inp){
+    toggleVlrCampos(inp);
+  });
 }
 
 function removeDescRow(id){descData=descData.filter(r=>String(r.id)!==String(id)); renderDescTable(); renderConsumo(); renderB2BResumo(); renderAlertas(); salvarTudo();}
