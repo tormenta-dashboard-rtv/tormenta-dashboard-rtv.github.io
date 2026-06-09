@@ -4674,7 +4674,11 @@ async function changePassword(ev) {
 
   <!-- Contexto extra -->
   <div class="gestor-context-bar">
-    <textarea id="gestor-ctx" placeholder="Contexto extra: cultivares suspensas, prioridades, restrições, novidades de mercado..."></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <span style="font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.5px;">🧠 Contexto Permanente <span style="color:#16a34a;font-size:9px;" id="ctx-saved-label"></span></span>
+      <button onclick="salvarContextoPermanente()" style="background:#2d6a2d;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer;">💾 Salvar</button>
+    </div>
+    <textarea id="gestor-ctx" placeholder="Escreva aqui o que o Gestor deve sempre lembrar: prioridades da Tormenta, filiais que mais vendem X cultivar, foco da semana, restrições... Clique em Salvar e ele sempre começará sabendo disso." style="height:80px;"></textarea>
     <div class="gestor-context-actions">
       <select id="gestor-modo">
         <option value="geral">📊 Análise geral completa</option>
@@ -4705,6 +4709,32 @@ let gestorHistorico = [];
 let gestorContextoFixo = '';
 
 
+
+// Contexto permanente do Gestor IA — salva/carrega do Supabase
+async function salvarContextoPermanente() {
+  const ctx = document.getElementById('gestor-ctx')?.value || '';
+  try {
+    const { error } = await sbClient.from('dashboard_state')
+      .upsert({ user_id: '00000000-0000-0000-0000-000000000001', gestor_ctx: ctx }, { onConflict: 'user_id' });
+    if (error) throw error;
+    const label = document.getElementById('ctx-saved-label');
+    if (label) { label.textContent = '✓ Salvo'; setTimeout(()=>label.textContent='', 3000); }
+  } catch(e) {
+    alert('Erro ao salvar contexto: ' + e.message);
+  }
+}
+
+async function carregarContextoPermanente() {
+  try {
+    const { data } = await sbClient.from('dashboard_state')
+      .select('gestor_ctx').eq('user_id', '00000000-0000-0000-0000-000000000001').maybeSingle();
+    if (data?.gestor_ctx) {
+      const el = document.getElementById('gestor-ctx');
+      if (el) el.value = data.gestor_ctx;
+    }
+  } catch(e) { console.warn('Contexto permanente não carregado:', e); }
+}
+
 function acaoRapida(tipo) {
   const prompts = {
     agenda: 'Monte a agenda completa desta semana para Leonardo e Marcos. Use os dados reais do dashboard, separe por dias da semana, otimize as rotas logísticas e priorize os canais com maior saldo B2B sem POG.',
@@ -4724,6 +4754,7 @@ function acaoRapida(tipo) {
 function abrirGestor() {
   document.getElementById('gestor-overlay').style.display = 'block';
   document.getElementById('gestor-panel').classList.add('open');
+  carregarContextoPermanente();
 }
 
 function fecharGestor() {
@@ -4831,6 +4862,8 @@ function buildSystemPrompt() {
     `  ${l.data||'?'} | ${l.agricultor||'?'} | ${l.municipio||'?'} | ${l.revenda||'?'} | ${(l.cultivares||[]).map(c=>c.cultivar+' '+(c.volEstimado||0)+'SC').join(',')}`
   ).join('\n') || '  Nenhum';
 
+  const ctxPermanente = document.getElementById('gestor-ctx')?.value?.trim() || '';
+
   return `Você é o Gestor IA da Sementes Tormenta — o melhor estrategista comercial de sementes do Brasil. Você é o co-piloto dos RTVs Leonardo Longo e Marcos Milani na safra 26/27.
 
 Você raciocina como um gestor comercial experiente de sementes: entende de agronomia, logística, relacionamento com revendas, risco de devolução de estoque e urgência de escoamento B2C. Você NÃO é um assistente genérico — você conhece profundamente o negócio da Tormenta.
@@ -4919,13 +4952,19 @@ ${andamentoLinhas}
 FECHADOS SEM POG LANÇADO (${fechadosSemPOG.length} total):
 ${fechadosSemPOGLinhas}
 
-=== REGRAS DE OURO ===
-- Faça perguntas para completar o que não sabe (filiais, volumes, contatos)
-- Memorize o que o usuário responde e use nas próximas respostas
+${ctxPermanente ? `=== CONTEXTO PERMANENTE (memorize e use sempre) ===
+${ctxPermanente}
+
+` : ''}=== REGRAS DE OURO ===
+- OBJETIVIDADE ACIMA DE TUDO: vá direto ao ponto. Não liste todos os canais e cultivares — destaque só o que é crítico ou mais relevante para a pergunta
+- Se perguntarem "qual é a situação geral", dê um resumo executivo de 3-5 pontos, não uma lista completa
+- Só mostre a lista completa se o usuário pedir explicitamente ("me dá a relação completa de...")
+- Faça perguntas quando precisar de informação que não está no dashboard
+- Memorize o que o usuário responde e use nas próximas respostas da mesma sessão
 - Seja cirúrgico: canal, filial, cultivar, argumento, próximo passo concreto
-- Use linguagem comercial direta — sem enrolação
-- Formate bem: emojis, negrito, seções claras
-- Quando o usuário disser "foco mudou para X", atualize sua prioridade imediatamente`;
+- Linguagem comercial direta — sem enrolação, sem introduções longas
+- Quando o usuário disser "foco mudou para X", atualize sua prioridade imediatamente
+- Máximo 3-4 itens por seção, a menos que pedido o contrário`;
 }
 
 async function analisarGestor() {
