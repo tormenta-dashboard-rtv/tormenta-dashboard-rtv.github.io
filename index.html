@@ -2447,8 +2447,15 @@ function preencherVlrListaPontoRural() {
 
   let preenchidos = 0, naoEncontrados = [];
 
+  const linhasPR = descData.filter(r => ((r.canal||'') + ' ' + (r.cliente||'')).toLowerCase().includes('ponto rural'));
+  if (linhasPR.length === 0) {
+    alert('⚠️ Nenhuma linha com canal "Ponto Rural" encontrada.\n\nCanais encontrados:\n' + [...new Set(descData.map(r=>r.canal||'(vazio)'))].join('\n'));
+    return;
+  }
+
   descData.forEach(function(row) {
-    if ((row.canal||'').toLowerCase().indexOf('ponto rural') === -1) return;
+    const rowStr = ((row.canal||'') + ' ' + (row.cliente||'')).toLowerCase();
+    if (rowStr.indexOf('ponto rural') === -1) return;
 
     const tipo = row.tipo || '';
     const isFiagro = tipo.toLowerCase().includes('fiagro');
@@ -2477,13 +2484,18 @@ function preencherVlrListaPontoRural() {
       const finalBag  = Math.round((finalBase + tsiVal) * 100) / 100;
       const finalSaco = Math.round((finalBag / 40) * 100) / 100;
 
+      const bagQtd  = Number(c.bag  && c.bag.qtd  || 0);
+      const sacoQtd = Number(c.saco && c.saco.qtd || 0);
+
       // Bag: preenche se Bag Qtd > 0
-      if ((c.bag.qtd||0) > 0) {
+      if (bagQtd > 0) {
+        if (!c.bag) c.bag = {qtd:0, vlrLista:0, preco:0};
         if ((c.bag.vlrLista||0) === 0) { c.bag.vlrLista = listaBag;  preenchidos++; }
         if ((c.bag.preco||0)    === 0) { c.bag.preco    = finalBag;  preenchidos++; }
       }
       // Saco: preenche se Saco Qtd > 0
-      if ((c.saco.qtd||0) > 0) {
+      if (sacoQtd > 0) {
+        if (!c.saco) c.saco = {qtd:0, vlrLista:0, preco:0};
         if ((c.saco.vlrLista||0) === 0) { c.saco.vlrLista = listaSaco;  preenchidos++; }
         if ((c.saco.preco||0)    === 0) { c.saco.preco    = finalSaco;  preenchidos++; }
       }
