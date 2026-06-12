@@ -1687,6 +1687,7 @@ function buildSapDerived() {
 // POG
 // ============================================================
 let pogData = [], modoAtual = 'detalhado';
+let pogDeletedIds = new Set();
 
 function popularSelects() {
   const {pc,cl} = buildSapDerived();
@@ -1740,7 +1741,11 @@ function lancarPOG(modo) {
   document.getElementById(p+'-conv').textContent='= 0 SC125K';
 }
 
-function removerPOG(i) { pogData.splice(i,1); aplicarApelidos(); renderPOG(); renderDashboard(); populatePOGCanalFilter(); renderPOGCanal(); salvarTudo(); }
+function removerPOG(i) {
+  const item = pogData[i];
+  if (item?.id) pogDeletedIds.add(String(item.id));
+  pogData.splice(i,1); aplicarApelidos(); renderPOG(); renderDashboard(); populatePOGCanalFilter(); renderPOGCanal(); salvarTudo();
+}
 
 function renderPOG() {
   const tbody = document.getElementById('tbody-pog');
@@ -4279,10 +4284,9 @@ async function salvarTudoAgora(extraPayload) {
     let pogMerged = pogData;
     if (remoto?.pog_data?.length) {
       const localIds  = new Set(pogData.map(p => String(p.id)));
-      const remotoIds = new Set(remoto.pog_data.map(p => String(p.id)));
-      const apenasRemoto = remoto.pog_data.filter(p => !localIds.has(String(p.id)));
-      const apenasLocal  = pogData.filter(p => !remotoIds.has(String(p.id)));
-      pogMerged = [...remoto.pog_data, ...apenasLocal];
+      const apenasRemoto = remoto.pog_data.filter(p => !localIds.has(String(p.id)) && !pogDeletedIds.has(String(p.id)));
+      const apenasLocal  = pogData.filter(p => !new Set(remoto.pog_data.map(r => String(r.id))).has(String(p.id)));
+      pogMerged = [...remoto.pog_data.filter(p => !pogDeletedIds.has(String(p.id))), ...apenasLocal];
     }
 
     // Merge de descData — bidirecional completo
@@ -4317,6 +4321,7 @@ async function salvarTudoAgora(extraPayload) {
     pogData   = pogMerged;
     descData  = descMerged;
     crmLeadsDeletedIds.clear();
+    pogDeletedIds.clear();
     window.__TORMENTA_STATE__ = {
       sapData, pogData: pogMerged, descData: descMerged, precosData, prazosData,
       crmLeads: crmMerged, savedAt: payload.saved_at
