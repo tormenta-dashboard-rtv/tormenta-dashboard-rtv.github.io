@@ -1241,6 +1241,7 @@ body.readonly-mode { padding-top: 32px !important; }
           <div class="fkpi"><div class="fkpi-val r" id="fd-erros">0</div><div class="fkpi-label">Alertas</div></div>
         </div>
         <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" style="background:var(--green-700);" onclick="preencherVlrListaPontoRural()" title="Preenche automaticamente Vlr Lista para linhas Ponto Rural com qtd > 0">💰 Vlr Lista Ponto Rural</button>
           <button class="btn btn-ghost btn-sm" onclick="clearDescTable()">🗑️ Limpar</button>
         </div>
       </div>
@@ -2384,6 +2385,141 @@ function addDescRow(){
   salvarTudo();
 }
 function clearDescTable(){if(confirm('Limpar todos os dados?')){descData=[];renderDescTable();renderAlertas();salvarTudo();}}
+
+// ============================================================
+// Preencher Vlr Lista — Ponto Rural (tabela de preços 26/27)
+// ============================================================
+function preencherVlrListaPontoRural() {
+  // Tabela de preços por tipo de desconto (em R$/bag)
+  // Fiagro + Desafio usa coluna VALOR LISTA FIAGRO (quando disponível), senão usa VALOR LISTA normal
+  const TABELA = {
+    // cultivar → { lista, desafio, diretor, listaFiagro, desafioFiagro, diretorFiagro }
+    'NEO510 IPRO':              { lista:10204, desafio:9183.6,  diretor:9693.8,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO531 I2X':               { lista:10383, desafio:9344.7,  diretor:9863.85, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO560 IPRO':              { lista:10314, desafio:9282.6,  diretor:9798.3,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO580 IPRO':              { lista:9954,  desafio:8958.6,  diretor:9456.3,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO581 E':                 { lista:8812,  desafio:7930.8,  diretor:8371.4,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO590 I2X':               { lista:9873,  desafio:8885.7,  diretor:9379.35, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO600 I2X':               { lista:10168, desafio:9151.2,  diretor:9659.6,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO610 IPRO':              { lista:10008, desafio:9007.2,  diretor:9507.6,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO620 IPRO NP':           { lista:10595, desafio:9535.5,  diretor:10065.25,listaFiagro:8920, desafioFiagro:8028,  diretorFiagro:8474 },
+    'NEO630 IPRO':              { lista:9940,  desafio:8946,    diretor:9443,    listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'NEO661 I2X':               { lista:10615, desafio:9553.5,  diretor:10084.25,listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'HO IJUÍ I2X':              { lista:10337, desafio:9303.3,  diretor:9820.15, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'HO CASCAVEL I2X':          { lista:10264, desafio:9237.6,  diretor:9750.8,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'HO DOURADOS I2X':          { lista:10386, desafio:9347.4,  diretor:9866.7,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'HO PIRAPÓ IPRO':           { lista:10206, desafio:9185.4,  diretor:9695.7,  listaFiagro:8593, desafioFiagro:7733.7,diretorFiagro:8163.35 },
+    'HO TERERÊ IPRO':           { lista:10826, desafio:9743.4,  diretor:10284.7, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'HO PRATA I2X':             { lista:10386, desafio:9347.4,  diretor:9866.7,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'INT6185 I2X':              { lista:10433, desafio:9389.7,  diretor:9911.35, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'INT6302 I2X':              { lista:10375, desafio:9337.5,  diretor:9856.25, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'PLANTAMAX PARIS 5.8 I2X':  { lista:10672, desafio:9604.8,  diretor:10138.4, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'M6330 I2X':                { lista:9824,  desafio:8841.6,  diretor:9332.8,  listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+    'STINE 62EA12 E':           { lista:8797,  desafio:7917.3,  diretor:8357.15, listaFiagro:0,    desafioFiagro:0,     diretorFiagro:0 },
+  };
+  const TABELA_TSI = {
+    'DERMACOR LUMITREO ALL BLACK':        866+1769, // Dermacor+Lumitreo → soma dos dois? Não, é produto único
+    'DERMACOR LUMITREO FIPRONIL':         1769, // mapeado como Dermacor Lumitreo All Black na planilha
+    'LUMITREO FIPRONIL ALL BLACK':        866,
+    'AVICTA COMPLETO ALL BLACK':          1658,
+    'STANDAK TOP ALL BLACK':              1376,
+    'STANDAK TOP TSB ALL BLACK':          1376+376, // Standak Top + TSB/Biológico
+    'TSB OU MIX BIOLÓGICO':               376,
+    'SEM TSI':                            0,
+    'SEM TSI / PADRÃO':                   0,
+  };
+
+  // Normaliza nome de cultivar para match com a tabela
+  function normCult(s) {
+    return (s||'').toUpperCase()
+      .replace(/\s+/g,' ').trim()
+      .replace('HO PIRAPÓ', 'HO PIRAPÓ')
+      .replace('HO PIRAP', 'HO PIRAPÓ')
+      .replace('PIRAPO', 'PIRAPÓ')
+      .replace('TERERE', 'TERERÊ')
+      .replace('IJUI', 'IJUÍ');
+  }
+  function normTSI(s) {
+    return (s||'').toUpperCase().replace(/\s+/g,' ').trim();
+  }
+
+  // Determina o preço da cultivar pelo tipo de desconto e canal (Fiagro)
+  function getVlrCultivar(cultivarKey, tipo, isFiagro) {
+    const t = TABELA[cultivarKey];
+    if (!t) return null;
+    if (isFiagro && t.listaFiagro > 0) {
+      if (tipo === 'Desafio') return t.desafioFiagro;
+      if (tipo === 'Diretor') return t.diretorFiagro;
+      return t.listaFiagro;
+    }
+    if (tipo === 'Desafio') return t.desafio;
+    if (tipo === 'Diretor') return t.diretor;
+    return t.lista;
+  }
+
+  let preenchidos = 0, naoEncontrados = [];
+
+  descData.forEach(function(row) {
+    // Só Ponto Rural
+    if ((row.canal||'').toLowerCase().indexOf('ponto rural') === -1) return;
+
+    const tipo = row.tipo || '';
+    // Fiagro + Desafio → usa coluna FIAGRO quando disponível
+    const isFiagro = tipo.toLowerCase().includes('fiagro');
+    const tipoBase = isFiagro ? 'Desafio' : tipo; // Fiagro+Desafio = Desafio base
+
+    (row.cultivares||[]).forEach(function(c) {
+      const cultivarKey = normCult(c.cultivar);
+      const tsiKey = normTSI(c.tsi);
+
+      // Encontra cultivar na tabela
+      let vlrCultBag = getVlrCultivar(cultivarKey, tipoBase, isFiagro);
+      if (vlrCultBag === null) {
+        // Tentativa de match parcial
+        const found = Object.keys(TABELA).find(k => cultivarKey.includes(k) || k.includes(cultivarKey));
+        if (found) {
+          vlrCultBag = getVlrCultivar(found, tipoBase, isFiagro);
+        } else {
+          if (c.cultivar && !naoEncontrados.includes(c.cultivar)) naoEncontrados.push(c.cultivar);
+          return;
+        }
+      }
+
+      // Valor do TSI por bag
+      let vlrTsiBag = 0;
+      const tsiNorm = normTSI(c.tsi);
+      for (const [k, v] of Object.entries(TABELA_TSI)) {
+        if (tsiNorm.includes(k) || k.includes(tsiNorm)) { vlrTsiBag = v; break; }
+      }
+
+      const vlrTotalBag  = Math.round((vlrCultBag + vlrTsiBag) * 100) / 100;
+      const vlrTotalSaco = Math.round((vlrTotalBag / 40) * 100) / 100;
+
+      // Preenche bag se Bag Qtd > 0 e vlrLista === 0
+      if ((c.bag.qtd||0) > 0 && (c.bag.vlrLista||0) === 0) {
+        c.bag.vlrLista = vlrTotalBag;
+        preenchidos++;
+      }
+      // Preenche saco se Saco Qtd > 0 e vlrLista === 0
+      if ((c.saco.qtd||0) > 0 && (c.saco.vlrLista||0) === 0) {
+        c.saco.vlrLista = vlrTotalSaco;
+        preenchidos++;
+      }
+    });
+  });
+
+  renderDescTable();
+  updateDescFooter();
+  renderB2BResumo();
+  renderAlertas();
+  salvarTudo();
+
+  if (naoEncontrados.length) {
+    alert('✅ ' + preenchidos + ' campo(s) preenchido(s)!\n\n⚠️ Cultivares não encontrados na tabela:\n' + naoEncontrados.join('\n'));
+  } else {
+    alert('✅ ' + preenchidos + ' campo(s) preenchido(s) com sucesso!');
+  }
+}
 function validarDescontos(){
   let e=0; descData.forEach(r=>{if(getDescStatus(r).length)e++;});
   const el=document.getElementById('val-summary-desc');
