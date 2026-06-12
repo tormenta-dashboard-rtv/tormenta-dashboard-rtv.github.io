@@ -1221,6 +1221,7 @@ body.readonly-mode { padding-top: 32px !important; }
         </select>
         <button class="btn btn-primary btn-sm" onclick="addDescRow()">+ Adicionar</button>
         <button class="btn btn-primary btn-sm" style="background:var(--green-700);" onclick="salvarTudo();alert('Descontos salvos!')">💾 Salvar</button>
+        <button class="btn btn-primary btn-sm" style="background:#166534;" onclick="preencherVlrListaPontoRural()" title="Preenche Vlr Lista para linhas Ponto Rural com qtd > 0">💰 Vlr Lista PR</button>
       </div>
 
       <div class="tbl-card" style="overflow-x:auto;">
@@ -1241,7 +1242,6 @@ body.readonly-mode { padding-top: 32px !important; }
           <div class="fkpi"><div class="fkpi-val r" id="fd-erros">0</div><div class="fkpi-label">Alertas</div></div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary btn-sm" style="background:var(--green-700);" onclick="preencherVlrListaPontoRural()" title="Preenche automaticamente Vlr Lista para linhas Ponto Rural com qtd > 0">💰 Vlr Lista Ponto Rural</button>
           <button class="btn btn-ghost btn-sm" onclick="clearDescTable()">🗑️ Limpar</button>
         </div>
       </div>
