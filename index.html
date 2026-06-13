@@ -1888,7 +1888,7 @@ function renderDashboard() {
     tr.innerHTML=`
       <td><strong>${e.nome}</strong></td>
       <td style="color:var(--text-3);font-size:12px;">${e.meta>0?e.meta.toLocaleString('pt-BR'):'—'}</td>
-      <td><span title="Clique para editar cota disponível" style="${cotaDispStyle}" onclick="editarCotaDisponivel('${e.nome.replace(/'/g,"\\'")}', ${e.cotaDisp})">${cotaDispVal}</span></td>
+      <td><span class="cota-disp-edit" data-nome="${e.nome}" data-cota="${e.cotaDisp}" title="Clique para editar cota disponível" style="${cotaDispStyle}">${cotaDispVal}</span></td>
       <td><strong style="color:var(--green-700)">${e.equiv.toLocaleString('pt-BR')}</strong></td>
       <td><strong style="color:var(--blue)">${e.pog > 0 ? e.pog.toLocaleString('pt-BR') : '<span style="color:var(--border-dark);font-weight:400;font-size:12px;">sem registro</span>'}</strong></td>
       <td style="color:${saldoCor};font-weight:600;">${saldoLabel}</td>
@@ -1908,6 +1908,12 @@ function renderDashboard() {
       <td>${badgePOG}</td>`;
     tbody.appendChild(tr);
   });
+
+  // Event delegation para edição inline da Cota 125k
+  tbody.onclick = function(ev) {
+    const span = ev.target.closest('.cota-disp-edit');
+    if (span) editarCotaDisponivel(span.dataset.nome, Number(span.dataset.cota));
+  };
 
   // Grid clientes
   const grid=document.getElementById('grid-clientes-dash');
