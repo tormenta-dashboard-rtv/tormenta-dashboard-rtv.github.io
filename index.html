@@ -1901,7 +1901,7 @@ function renderDashboard() {
       <td>${badgeMeta}</td>
       <td>
         ${e.equiv > 0
-          ? `<div class="prog-wrap"><div class="prog-track"><div class="prog-bar prog-green" style="width:${pogBar}%"></div></div><span class="prog-pct" style="color:${pogBar>0?'var(--ok)':'var(--text-3)'}">${e.pctPog.toFixed(1)}%</span></div>`
+          ? '<div class="prog-wrap"><div class="prog-track"><div class="prog-bar prog-green" style="width:'+pogBar+'%"></div></div><span class="prog-pct" style="color:'+(pogBar>0?'var(--ok)':'var(--text-3)')+'">'+e.pctPog.toFixed(1)+'%</span></div>'
           : '<span style="color:var(--border-dark);font-size:11px;">—</span>'
         }
       </td>
