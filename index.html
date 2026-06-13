@@ -892,6 +892,7 @@ body.readonly-mode { padding-top: 32px !important; }
           <div class="kpi-label">Vendido B2B (SC125K)</div>
           <div class="kpi-value gold" id="kd-b2b">—</div>
           <div class="kpi-sub" id="kd-b2b-pct">—% da meta</div>
+          <div class="kpi-sub" id="kd-b2b-cota" style="color:var(--gold-dim)">—% da cota atual</div>
         </div>
         <div class="kpi-card blue">
           <div class="kpi-label">Escoado POG (SC125K)</div>
@@ -1822,6 +1823,9 @@ function renderDashboard() {
   }
   document.getElementById('kd-b2b').textContent = totalVendido.toLocaleString('pt-BR');
   document.getElementById('kd-b2b-pct').textContent = (totalVendido/TOTAL_COTA*100).toFixed(1)+'% da meta';
+  const pctCotaAtual = totalCotaAtual > 0 ? (totalVendido/totalCotaAtual*100).toFixed(1) : '0';
+  const elB2bCota = document.getElementById('kd-b2b-cota');
+  if (elB2bCota) elB2bCota.textContent = pctCotaAtual+'% da cota atual';
   document.getElementById('kd-pog').textContent = totalPOG.toLocaleString('pt-BR');
   document.getElementById('kd-pog-pct').textContent = totalVendido>0?(totalPOG/totalVendido*100).toFixed(1)+'% do B2B':'0% do B2B';
   document.getElementById('kd-saldo').textContent = (totalCotaAtual-totalVendido).toLocaleString('pt-BR');
