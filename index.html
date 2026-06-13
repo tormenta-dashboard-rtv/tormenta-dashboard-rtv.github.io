@@ -879,9 +879,14 @@ body.readonly-mode { padding-top: 32px !important; }
       <!-- KPIs -->
       <div class="kpi-strip">
         <div class="kpi-card green">
-          <div class="kpi-label">Cota Total (SC125K)</div>
+          <div class="kpi-label">Meta (SC125K)</div>
           <div class="kpi-value green">130.860</div>
           <div class="kpi-sub">Meta Safra 26/27</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Cota Atual (SC125K)</div>
+          <div class="kpi-value green" id="kd-cota-atual">—</div>
+          <div class="kpi-sub" id="kd-cota-atual-sub">Semente disponível</div>
         </div>
         <div class="kpi-card gold">
           <div class="kpi-label">Vendido B2B (SC125K)</div>
@@ -1803,11 +1808,23 @@ function renderDashboard() {
   pogData.forEach(r=>{ pogPorCult[r.cultivar]=(pogPorCult[r.cultivar]||0)+r.totalSC; });
 
   // KPIs
+  // Cota Atual = soma das cotas disponíveis (cotaDisponivel onde definida, senão usa meta original)
+  const totalCotaAtual = Object.entries(cotas).reduce((s,[nome,meta]) => {
+    return s + (cotaDisponivel[nome]!=null && cotaDisponivel[nome]<meta ? cotaDisponivel[nome] : meta);
+  }, 0);
+  const elCotaAtual = document.getElementById('kd-cota-atual');
+  if (elCotaAtual) {
+    elCotaAtual.textContent = totalCotaAtual.toLocaleString('pt-BR');
+    elCotaAtual.style.color = totalCotaAtual < TOTAL_COTA ? 'var(--gold-dim)' : 'var(--ok)';
+    document.getElementById('kd-cota-atual-sub').textContent = totalCotaAtual < TOTAL_COTA
+      ? (TOTAL_COTA - totalCotaAtual).toLocaleString('pt-BR') + ' SC estancados'
+      : 'Semente disponível';
+  }
   document.getElementById('kd-b2b').textContent = totalVendido.toLocaleString('pt-BR');
   document.getElementById('kd-b2b-pct').textContent = (totalVendido/TOTAL_COTA*100).toFixed(1)+'% da meta';
   document.getElementById('kd-pog').textContent = totalPOG.toLocaleString('pt-BR');
   document.getElementById('kd-pog-pct').textContent = totalVendido>0?(totalPOG/totalVendido*100).toFixed(1)+'% do B2B':'0% do B2B';
-  document.getElementById('kd-saldo').textContent = (TOTAL_COTA-totalVendido).toLocaleString('pt-BR');
+  document.getElementById('kd-saldo').textContent = (totalCotaAtual-totalVendido).toLocaleString('pt-BR');
   document.getElementById('kd-clientes').textContent = Object.keys(cl).length;
 
   // Filtro status
