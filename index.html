@@ -935,7 +935,8 @@ body.readonly-mode { padding-top: 32px !important; }
           <thead>
             <tr>
               <th>Cultivar</th>
-              <th>Cota (SC125K)</th>
+              <th>Meta 125k</th>
+              <th title="Semente disponível — clique para editar">Cota 125k ✏️</th>
               <th>B2B Vendido</th>
               <th>POG Escoado</th>
               <th>Saldo Cota</th>
@@ -1559,6 +1560,7 @@ const cotas = {
   'NEO590 I2X':1000,'NEO600 I2X':7500,'NEO610 IPRO':8300,
   'NEO620 IPRO NP':9350,'NEO630 IPRO':7700,'NEO661 I2X':7000
 };
+let cotaDisponivel = {};
 
 // Dados reais do SAP (importados do Excel 22/05/2026)
 let sapData = [
@@ -1812,34 +1814,36 @@ function renderDashboard() {
   const statusFilt = document.getElementById('filter-status-cult').value;
 
   // Tabela cultivares
-  let entries = Object.entries(cotas).map(([nome,cota])=>{
+  let entries = Object.entries(cotas).map(([nome,meta])=>{
     const d = pc[nome]||{equiv:0,sc125k:0,bg5m:0};
     const pog = pogPorCult[nome]||0;
-    const pct = cota>0?(d.equiv/cota*100):0;
+    const cotaDisp = (cotaDisponivel[nome]!=null && cotaDisponivel[nome]<meta) ? cotaDisponivel[nome] : meta;
+    const estancado = cotaDisp < meta;
+    const pct = cotaDisp>0 ? Math.min(100,d.equiv/cotaDisp*100) : 0;
     const pctPog = d.equiv>0?(pog/d.equiv*100):0;
-    let status = cota===0?'sem-cota':d.equiv>=cota?'atingido':pct>=70?'quase':'aberto';
-    return {nome,cota,equiv:d.equiv,pog,pct,pctPog,status};
+    let status = meta===0?'sem-cota':d.equiv>=cotaDisp?'atingido':pct>=70?'quase':'aberto';
+    return {nome,meta,cotaDisp,estancado,equiv:d.equiv,pog,pct,pctPog,status};
   });
 
   if (statusFilt) entries = entries.filter(e=>e.status===statusFilt);
 
   // Ordenar
   entries.sort((a,b)=>{
-    const va = dashSort.field==='cota'?a.cota:dashSort.field==='pog'?a.pog:dashSort.field==='pct'?a.pct:a.equiv;
-    const vb = dashSort.field==='cota'?b.cota:dashSort.field==='pog'?b.pog:dashSort.field==='pct'?b.pct:b.equiv;
+    const va = dashSort.field==='cota'?a.meta:dashSort.field==='pog'?a.pog:dashSort.field==='pct'?a.pct:a.equiv;
+    const vb = dashSort.field==='cota'?b.meta:dashSort.field==='pog'?b.pog:dashSort.field==='pct'?b.pct:b.equiv;
     return dashSort.dir==='desc'?vb-va:va-vb;
   });
 
   const tbody = document.getElementById('tbody-dash-cultivares');
   tbody.innerHTML='';
   entries.forEach(e=>{
-    const saldo=e.cota-e.equiv;
-    // Saldo negativo = vendeu ACIMA da cota = comemorativo (verde), positivo = ainda falta (laranja/vermelho)
+    const saldo=e.cotaDisp-e.equiv;
     const saldoCor = saldo < 0 ? 'var(--ok)' : saldo === 0 ? 'var(--text-3)' : e.status==='quase' ? 'var(--warn)' : 'var(--err)';
-    const saldoLabel = e.cota > 0 ? (saldo < 0 ? '▲ '+Math.abs(saldo).toLocaleString('pt-BR') : saldo.toLocaleString('pt-BR')) : '—';
+    const saldoLabel = e.meta > 0 ? (saldo < 0 ? '▲ '+Math.abs(saldo).toLocaleString('pt-BR') : saldo.toLocaleString('pt-BR')) : '—';
     const barColor=e.status==='atingido'?'prog-green':e.status==='quase'?'prog-gold':e.status==='sem-cota'?'prog-gold':'prog-red';
-    // Status 1: % Meta (B2B vendido vs cota)
-    const badgeMeta = e.status==='atingido'
+    const badgeMeta = (e.estancado && e.status==='atingido')
+      ? '<span class="badge badge-green">🔒 Estancado</span>'
+      : e.status==='atingido'
       ? '<span class="badge badge-green">✅ Atingido</span>'
       : e.status==='quase'
       ? '<span class="badge badge-gold">⚡ Quase</span>'
@@ -1862,11 +1866,17 @@ function renderDashboard() {
       : '<span class="badge badge-red">🔴 Baixo</span>';
     // Cor e label do % meta — acima de 100% é verde forte
     const pctColor = e.pct >= 100 ? 'var(--ok)' : e.status==='quase' ? 'var(--gold-dim)' : e.status==='aberto' ? 'var(--err)' : 'var(--text-3)';
-    const pctLabel = e.cota > 0 ? (e.pct >= 100 ? '🏆 '+e.pct.toFixed(1)+'%' : e.pct.toFixed(1)+'%') : '—';
+    const pctLabel = e.meta > 0 ? (e.pct >= 100 ? '🏆 100%' : e.pct.toFixed(1)+'%') : '—';
+    const cotaDispStyle = e.estancado ? 'color:var(--gold-dim);font-weight:700;cursor:pointer;text-decoration:underline dotted;' : 'color:var(--text-3);cursor:pointer;text-decoration:underline dotted;font-size:12px;';
+    const cotaDispVal = e.cotaDisp > 0 ? e.cotaDisp.toLocaleString('pt-BR') : '—';
+    const pogCellHtml = e.equiv > 0
+      ? '<div class="prog-wrap"><div class="prog-track"><div class="prog-bar prog-green" style="width:'+pogBar+'%"></div></div><span class="prog-pct" style="color:'+(pogBar>0?'var(--ok)':'var(--text-3)')+'">'+e.pctPog.toFixed(1)+'%</span></div>'
+      : '<span style="color:var(--border-dark);font-size:11px;">—</span>';
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><strong>${e.nome}</strong></td>
-      <td>${e.cota>0?e.cota.toLocaleString('pt-BR'):'—'}</td>
+      <td style="color:var(--text-3);font-size:12px;">${e.meta>0?e.meta.toLocaleString('pt-BR'):'—'}</td>
+      <td><span class="cota-disp-cell" data-nome="${e.nome}" data-cota="${e.cotaDisp}" title="Clique para editar" style="${cotaDispStyle}">${cotaDispVal}</span></td>
       <td><strong style="color:var(--green-700)">${e.equiv.toLocaleString('pt-BR')}</strong></td>
       <td><strong style="color:var(--blue)">${e.pog > 0 ? e.pog.toLocaleString('pt-BR') : '<span style="color:var(--border-dark);font-weight:400;font-size:12px;">sem registro</span>'}</strong></td>
       <td style="color:${saldoCor};font-weight:600;">${saldoLabel}</td>
@@ -1877,15 +1887,15 @@ function renderDashboard() {
         </div>
       </td>
       <td>${badgeMeta}</td>
-      <td>
-        ${e.equiv > 0
-          ? `<div class="prog-wrap"><div class="prog-track"><div class="prog-bar prog-green" style="width:${pogBar}%"></div></div><span class="prog-pct" style="color:${pogBar>0?'var(--ok)':'var(--text-3)'}">${e.pctPog.toFixed(1)}%</span></div>`
-          : '<span style="color:var(--border-dark);font-size:11px;">—</span>'
-        }
-      </td>
+      <td>${pogCellHtml}</td>
       <td>${badgePOG}</td>`;
     tbody.appendChild(tr);
   });
+
+  tbody.onclick = function(ev) {
+    const el = ev.target.closest('.cota-disp-cell');
+    if (el) editarCotaDisponivel(el.dataset.nome, Number(el.dataset.cota));
+  };
 
   // Grid clientes
   const grid=document.getElementById('grid-clientes-dash');
@@ -2833,7 +2843,7 @@ function gerarPDFCanal(revendaId) {
   <div class="no-print" style="text-align:center;margin-top:20px;">
     <button onclick="window.print()" style="background:#1a3d1a;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;">🖨 Imprimir / Salvar PDF</button>
   </div>
-<!-- build:stable --></body></html>`);
+</body></html>`);
   win.document.close();
 }
 
@@ -4288,6 +4298,17 @@ function addMetaCotaLinha() {
   adicionarLinhaMetaCota(wrap, cultivares, '', 0);
 }
 
+function editarCotaDisponivel(nome, cotaAtual) {
+  const metaOriginal = cotas[nome] || 0;
+  const atual = cotaDisponivel[nome] != null ? cotaDisponivel[nome] : metaOriginal;
+  const input = prompt(nome + '\n\nMeta original: ' + metaOriginal.toLocaleString('pt-BR') + ' SC\nCota disponível: ' + atual.toLocaleString('pt-BR') + ' SC\n\nDigite a nova cota disponível:\n(igual ou maior que a meta = remove estancamento)', atual);
+  if (input === null) return;
+  const novo = parseInt((input+'').replace(/\D/g,'')) || 0;
+  if (novo >= metaOriginal) { delete cotaDisponivel[nome]; }
+  else { cotaDisponivel[nome] = novo; }
+  renderDashboard();
+  salvarTudo();
+}
 function fecharMetaCota() {
   document.getElementById('modal-meta-cota').classList.remove('open');
 }
@@ -4395,7 +4416,7 @@ async function salvarTudoAgora(extraPayload) {
 
     // Buscar estado atual do Supabase para fazer merge
     const { data: remoto } = await sbClient.from('dashboard_state')
-      .select('crm_leads, pog_data, sap_data, desc_data, precos_data, prazos_data')
+      .select('crm_leads, pog_data, sap_data, desc_data, precos_data, prazos_data, cota_disponivel')
       .eq('user_id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle();
 
@@ -4440,6 +4461,7 @@ async function salvarTudoAgora(extraPayload) {
       precos_data: Object.keys(precosData).length ? precosData : (remoto?.precos_data || {}),
       prazos_data: Object.keys(prazosData||{}).length ? prazosData : (remoto?.prazos_data || {}),
       crm_leads: crmMerged,
+      cota_disponivel: Object.keys(cotaDisponivel).length ? cotaDisponivel : (remoto?.cota_disponivel || {}),
       saved_at: new Date().toISOString()
     };
 
@@ -4481,11 +4503,12 @@ carregarTudo = function() {
       // tsi já persiste no state — não precisa recalcular
     });
   }
-  if (state.pogData)    pogData    = state.pogData;
-  if (state.descData)   descData   = state.descData;
-  if (state.precosData) precosData = state.precosData;
-  if (state.prazosData) prazosData = state.prazosData;
-  if (state.crmLeads)   crmLeads   = state.crmLeads;
+  if (state.pogData)        pogData        = state.pogData;
+  if (state.descData)       descData       = state.descData;
+  if (state.precosData)     precosData     = state.precosData;
+  if (state.prazosData)     prazosData     = state.prazosData;
+  if (state.crmLeads)       crmLeads       = state.crmLeads;
+  if (state.cotaDisponivel) cotaDisponivel = state.cotaDisponivel;
   if (state.savedAt) {
     const d = new Date(state.savedAt);
     document.getElementById('save-ts').textContent =
@@ -4530,13 +4553,14 @@ async function bootApp() {
     if (error) throw error;
     if (data) {
       window.__TORMENTA_STATE__ = {
-        sapData:    data.sap_data    || [],
-        pogData:    data.pog_data    || [],
-        descData:   data.desc_data   || [],
-        precosData: data.precos_data || {},
-        prazosData: data.prazos_data || {},
-        crmLeads:   data.crm_leads   || [],
-        savedAt:    data.saved_at
+        sapData:        data.sap_data        || [],
+        pogData:        data.pog_data        || [],
+        descData:       data.desc_data       || [],
+        precosData:     data.precos_data     || {},
+        prazosData:     data.prazos_data     || {},
+        crmLeads:       data.crm_leads       || [],
+        cotaDisponivel: data.cota_disponivel || {},
+        savedAt:        data.saved_at
       };
     } else {
       window.__TORMENTA_STATE__ = { sapData:[], pogData:[], descData:[], precosData:{}, prazosData:{}, crmLeads:[] };
